@@ -1,6 +1,0 @@
-{
-    "buildCommand": "cd iphone-scroll && npm install && npm run build",
-    "outputDirectory": "iphone-scroll/.next",
-    "framework": "nextjs",
-    "installCommand": "cd iphone-scroll && npm install"
-}
