@@ -283,7 +283,7 @@ export default function Home() {
           <div
             className={styles.phoneWrapper}
             style={{
-              transform: `scale(${phoneScale})`
+              transform: `translate(-50%, -50%) scale(${phoneScale})`
             }}
           >
             <canvas ref={canvasRef} className={styles.canvas} />
