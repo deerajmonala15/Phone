@@ -5,10 +5,6 @@ import styles from "./page.module.css";
 
 const TOTAL_FRAMES = 128;
 
-// Easing functions
-const easeOutExpo = (t: number) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -17,16 +13,17 @@ export default function Home() {
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Smooth animation refs
-  const scrollYRef = useRef(0);
-  const targetScrollRef = useRef(0);
   const currentFrameRef = useRef(0);
   const targetFrameRef = useRef(0);
+  const currentScaleRef = useRef(0.7);
+  const targetScaleRef = useRef(0.7);
   const rafRef = useRef<number>(0);
   const lastFrameRef = useRef(-1);
 
   // State for reactive UI
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeSection, setActiveSection] = useState(0);
+  const [phoneScale, setPhoneScale] = useState(0.7);
 
   // Preload images with smart batching
   useEffect(() => {
@@ -95,17 +92,20 @@ export default function Home() {
 
   // Buttery smooth animation loop
   const animate = useCallback(() => {
-    // Smooth scroll interpolation
-    scrollYRef.current += (targetScrollRef.current - scrollYRef.current) * 0.08;
+    // Smooth frame interpolation (snappier response)
+    currentFrameRef.current += (targetFrameRef.current - currentFrameRef.current) * 0.15;
 
-    // Smooth frame interpolation
-    currentFrameRef.current += (targetFrameRef.current - currentFrameRef.current) * 0.12;
+    // Smooth scale interpolation
+    currentScaleRef.current += (targetScaleRef.current - currentScaleRef.current) * 0.12;
 
     drawFrame(currentFrameRef.current);
 
-    // Update progress for UI (throttled)
+    // Update scale for UI
+    setPhoneScale(currentScaleRef.current);
+
+    // Update progress for UI
     const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-    const progress = maxScroll > 0 ? scrollYRef.current / maxScroll : 0;
+    const progress = maxScroll > 0 ? window.scrollY / maxScroll : 0;
     setScrollProgress(progress);
 
     // Determine active section
@@ -129,7 +129,8 @@ export default function Home() {
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      const size = Math.min(window.innerWidth * 0.5, window.innerHeight * 0.55, 500);
+      // Larger canvas for better visual impact
+      const size = Math.min(window.innerWidth * 0.55, window.innerHeight * 0.6, 600);
       canvas.width = size * dpr;
       canvas.height = size * dpr;
       canvas.style.width = `${size}px`;
@@ -142,9 +143,20 @@ export default function Home() {
     drawFrame(0);
 
     const onScroll = () => {
-      targetScrollRef.current = window.scrollY;
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      targetFrameRef.current = (window.scrollY / maxScroll) * (TOTAL_FRAMES - 1);
+      const scrollRatio = window.scrollY / maxScroll;
+
+      targetFrameRef.current = scrollRatio * (TOTAL_FRAMES - 1);
+
+      // Dynamic scaling: starts at 0.7, grows to 1.0, then to 1.15
+      // Using a curve that peaks around the middle and grows toward the end
+      if (scrollRatio < 0.5) {
+        // First half: 0.7 → 1.0
+        targetScaleRef.current = 0.7 + (scrollRatio * 2) * 0.3;
+      } else {
+        // Second half: 1.0 → 1.15
+        targetScaleRef.current = 1.0 + ((scrollRatio - 0.5) * 2) * 0.15;
+      }
     };
 
     rafRef.current = requestAnimationFrame(animate);
@@ -207,16 +219,16 @@ export default function Home() {
     } else if (isPast) {
       return {
         opacity: 0,
-        y: -80,
-        scale: 0.9,
-        blur: 12
+        y: -60,
+        scale: 0.95,
+        blur: 8
       };
     } else {
       return {
         opacity: 0,
-        y: 80,
-        scale: 0.9,
-        blur: 12
+        y: 60,
+        scale: 0.95,
+        blur: 8
       };
     }
   };
@@ -265,9 +277,28 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Main content area */}
+        {/* Main content area - Centered phone with overlaying text */}
         <div className={styles.contentArea}>
-          {/* Floating text sections with morph transitions */}
+          {/* Centered Phone */}
+          <div
+            className={styles.phoneWrapper}
+            style={{
+              transform: `scale(${phoneScale})`
+            }}
+          >
+            <canvas ref={canvasRef} className={styles.canvas} />
+
+            {/* Ambient glow */}
+            <div
+              className={styles.glow}
+              style={{
+                opacity: 0.4 + scrollProgress * 0.5,
+                transform: `scale(${1 + scrollProgress * 0.4})`
+              }}
+            />
+          </div>
+
+          {/* Floating text sections */}
           {sections.map((section, i) => {
             const transform = getTextTransform(i);
             return (
@@ -296,31 +327,6 @@ export default function Home() {
               </div>
             );
           })}
-
-          {/* Phone canvas with enhanced depth effect */}
-          <div
-            className={styles.phoneWrapper}
-            style={{
-              transform: `
-                perspective(1500px)
-                rotateX(${scrollProgress * 8}deg)
-                rotateY(${Math.sin(scrollProgress * Math.PI) * 3}deg)
-                translateZ(${scrollProgress * 120}px)
-                scale(${1 + scrollProgress * 0.15})
-              `
-            }}
-          >
-            <canvas ref={canvasRef} className={styles.canvas} />
-
-            {/* Ambient glow */}
-            <div
-              className={styles.glow}
-              style={{
-                opacity: 0.5 + scrollProgress * 0.4,
-                transform: `scale(${1 + scrollProgress * 0.3})`
-              }}
-            />
-          </div>
         </div>
 
         {/* CTA Section */}
